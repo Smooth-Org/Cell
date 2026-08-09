@@ -1,9 +1,5 @@
-[View Full Changelog](https://github.com/enderneko/Cell/compare/r277-beta...cb11851e008f37b555b9082374b98f8579ffdbb2)
+[View Full Changelog](https://github.com/enderneko/Cell/compare/r278-beta...089a0f73f77ccd2497989090bb3501e5f7f784bb)
 
 Ekkles (1):
 
-- Update SOO RaidDebuffs for MOP (#492)
-
-anon1231823 (1):
-
-- Update interface version in Cell_Vanilla.toc (#495)
+- Fixed the bug in MOP Raiddebuff (#496)
