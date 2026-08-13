@@ -1109,13 +1109,34 @@ end
 -------------------------------------------------
 -- ForEachAuraCache
 -------------------------------------------------
+-- 12.1.0 can leave Cell unable to read a unit's auras at all: enumeration throws and name
+-- lookups silently return nil, so this cache becomes the only source and would otherwise show
+-- expired auras indefinitely. An expiration cached while it was readable stays valid to compare
+-- against the clock, which needs no API, so anything that has run out is dropped here.
+-- expirationTime == 0 means no duration, and an unreadable one cannot be judged; both are kept.
+local function IsCachedAuraExpired(aura)
+    if type(aura) ~= "table" then return false end
+
+    local expirationTime = aura.expirationTime
+    if not expirationTime or not F.IsValueNonSecret(expirationTime) then return false end
+
+    return expirationTime > 0 and expirationTime <= GetTime()
+end
+
 local function ForEachAuraCache(button, filter, func)
+    local cache
     if filter == "HARMFUL" then
-        for auraInstanceID, aura in next, button._debuffs_cache do
-            func(button, aura)
-        end
+        cache = button._debuffs_cache
     elseif filter == "HELPFUL" then
-        for auraInstanceID, aura in next, button._buffs_cache do
+        cache = button._buffs_cache
+    end
+    if not cache then return end
+
+    -- clearing fields during a next() traversal is well defined, adding them would not be
+    for auraInstanceID, aura in next, cache do
+        if IsCachedAuraExpired(aura) then
+            cache[auraInstanceID] = nil
+        else
             func(button, aura)
         end
     end
