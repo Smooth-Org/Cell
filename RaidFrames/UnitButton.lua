@@ -1780,6 +1780,13 @@ UnitButton_UpdateAuras = function(self, updateInfo)
         isFullUpdate = not (updateInfo.addedAuras or updateInfo.updatedAuraInstanceIDs or updateInfo.removedAuraInstanceIDs)
     end
 
+    -- An unreadable incremental payload is promoted to a full update: the rescan reads the
+    -- unit's auras directly and is blocked far less often than the payload is secret. If the
+    -- rescan is blocked too, ForEachAura keeps the previously cached auras rather than clearing.
+    if not isFullUpdate and not F.IsAuraPayloadReadable(updateInfo) then
+        isFullUpdate = true
+    end
+
     if isFullUpdate then
         -- full update
         UnitButton_UpdateBuffs(self, true)

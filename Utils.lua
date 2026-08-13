@@ -2564,3 +2564,17 @@ function F.IsValueNonSecret(val)
     if not issecretvalue then return true end
     return not issecretvalue(val)
 end
+
+-- UNIT_AURA payload check (Midnight 12.1.0+).
+-- 12.1.0 can deliver the incremental aura lists themselves as secret values. A secret table
+-- reference still passes a truthiness test, but iterating it throws with
+-- "bad argument #1 to '(for generator)' (table expected, got secret)", so the payload has to be
+-- probed before any incremental aura path touches it.
+-- Returns true if every list present on updateInfo can actually be iterated.
+function F.IsAuraPayloadReadable(updateInfo)
+    if not updateInfo then return false end
+    if updateInfo.addedAuras and not F.IsValueNonSecret(updateInfo.addedAuras) then return false end
+    if updateInfo.updatedAuraInstanceIDs and not F.IsValueNonSecret(updateInfo.updatedAuraInstanceIDs) then return false end
+    if updateInfo.removedAuraInstanceIDs and not F.IsValueNonSecret(updateInfo.removedAuraInstanceIDs) then return false end
+    return true
+end

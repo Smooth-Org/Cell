@@ -239,7 +239,23 @@ local function QuickAssist_UpdateAuras(self, updateInfo)
 
     local buffsChanged
 
-    if not updateInfo or updateInfo.isFullUpdate then
+    -- 12.1.0 can deliver both the isFullUpdate flag and the incremental aura lists as secret
+    -- values, so neither can be read directly. An unreadable payload is promoted to a full
+    -- update, which rescans the unit's auras instead. See F.IsAuraPayloadReadable.
+    local isFullUpdate
+    if not updateInfo then
+        isFullUpdate = true
+    elseif F.IsValueNonSecret(updateInfo.isFullUpdate) then
+        isFullUpdate = updateInfo.isFullUpdate
+    else
+        isFullUpdate = not (updateInfo.addedAuras or updateInfo.updatedAuraInstanceIDs or updateInfo.removedAuraInstanceIDs)
+    end
+
+    if not isFullUpdate and not F.IsAuraPayloadReadable(updateInfo) then
+        isFullUpdate = true
+    end
+
+    if isFullUpdate then
         wipe(self._buffs_cache)
         wipe(self._buffs_count_cache)
         buffsChanged = true
