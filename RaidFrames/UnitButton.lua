@@ -1748,7 +1748,17 @@ UnitButton_UpdateAuras = function(self, updateInfo)
     local unit = self.states.displayedUnit
     if not unit then return end
 
-    local isFullUpdate = not updateInfo or updateInfo.isFullUpdate
+    -- 12.1.0 can flag updateInfo.isFullUpdate as a secret boolean, and any boolean test on a
+    -- secret throws. When the flag is unreadable, infer the update kind from the payload:
+    -- a full update carries none of the incremental aura lists.
+    local isFullUpdate
+    if not updateInfo then
+        isFullUpdate = true
+    elseif F.IsValueNonSecret(updateInfo.isFullUpdate) then
+        isFullUpdate = updateInfo.isFullUpdate
+    else
+        isFullUpdate = not (updateInfo.addedAuras or updateInfo.updatedAuraInstanceIDs or updateInfo.removedAuraInstanceIDs)
+    end
 
     if isFullUpdate then
         -- full update
@@ -2846,13 +2856,24 @@ local function UnitButton_UpdateName(self)
     self.indicators.nameText:UpdateName()
 end
 
+-- 12.1.0 can return a secret boolean from UnitIsCharmed, and any boolean test on a secret
+-- throws. Degrade an unreadable result to false so charm coloring is skipped rather than
+-- erroring; a charmed unit then just keeps its normal color.
+local function IsCharmed(unit)
+    local charmed = UnitIsCharmed(unit)
+    if F.IsValueNonSecret(charmed) then
+        return charmed
+    end
+    return false
+end
+
 UnitButton_UpdateNameTextColor = function(self)
     local unit = self.states.unit
     if not unit then return end
 
     if enabledIndicators["nameText"] then
         if indicatorColors["nameText"][1] == "class_color" or not UnitIsConnected(unit)
-        or ((UnitIsPlayer(unit) or UnitInPartyIsAI(unit)) and UnitIsCharmed(unit)) or self.states.inVehicle then
+        or ((UnitIsPlayer(unit) or UnitInPartyIsAI(unit)) and IsCharmed(unit)) or self.states.inVehicle then
             self.indicators.nameText:SetColor(F.GetUnitClassColor(unit))
         else
             self.indicators.nameText:SetColor(unpack(indicatorColors["nameText"][2]))
@@ -2893,7 +2914,7 @@ UnitButton_UpdateHealthColor = function(self)
         if not UnitIsConnected(unit) then
             barR, barG, barB = 0.4, 0.4, 0.4
             lossR, lossG, lossB = 0.4, 0.4, 0.4
-        elseif UnitIsCharmed(unit) then
+        elseif IsCharmed(unit) then
             barR, barG, barB, barA = 0.5, 0, 1, 1
             lossR, lossG, lossB, lossA = barR*0.2, barG*0.2, barB*0.2, 1
         elseif self.states.inVehicle then
