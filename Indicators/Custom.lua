@@ -87,7 +87,15 @@ function I.CreateIndicator(parent, indicatorTable)
     elseif indicatorTable["type"] == "rect" then
         indicator = I.CreateAura_Rect(nil, parent.widgets.indicatorFrame)
     elseif indicatorTable["type"] == "icons" then
-        indicator = I.CreateAura_Icons(nil, parent.widgets.indicatorFrame, 10)
+        -- 12.1.0 removed every way to read a unit's auras in restricted content, so an
+        -- indicator that enumerates and matches shows nothing there. Prefer a Blizzard
+        -- aura container, which renders auras Cell is not permitted to see. Falls back to
+        -- the legacy widget when the indicator cannot be expressed as a container filter
+        -- (name tracking), or on a client without the widget.
+        indicator = I.CreateContainerIndicator(parent, indicatorTable)
+        if not indicator then
+            indicator = I.CreateAura_Icons(nil, parent.widgets.indicatorFrame, 10)
+        end
     elseif indicatorTable["type"] == "color" then
         indicator = I.CreateAura_Color(nil, parent)
     elseif indicatorTable["type"] == "texture" then
@@ -110,6 +118,7 @@ end
 
 function I.RemoveIndicator(parent, indicatorName, auraType)
     local indicator = parent.indicators[indicatorName]
+    I.DestroyContainerIndicator(indicator)
     indicator:ClearAllPoints()
     indicator:Hide()
     indicator:SetParent(nil)
@@ -128,6 +137,9 @@ function I.RemoveAllCustomIndicators(parent)
 
     for indicatorName, indicator in pairs(parent.indicators) do
         if string.find(indicatorName, "^indicator") then
+            -- a container owns a Blizzard widget that SetParent(nil) would orphan rather
+            -- than release, leaking one container per layout update
+            I.DestroyContainerIndicator(indicator)
             indicator:ClearAllPoints()
             indicator:Hide()
             indicator:SetParent(nil)
@@ -196,7 +208,10 @@ function I.ResetCustomIndicators(unitButton, auraType)
     local unit = unitButton.states.displayedUnit
 
     for indicatorName, indicatorTable in pairs(customIndicators[auraType]) do
-        if enabledIndicators[indicatorName] and unitButton.indicators[indicatorName] then
+        -- container-backed indicators are driven by Blizzard: Cell neither resets nor
+        -- populates them, because it cannot read what they are showing
+        if enabledIndicators[indicatorName] and unitButton.indicators[indicatorName]
+            and not unitButton.indicators[indicatorName].isContainer then
             unitButton.indicators[indicatorName]:Hide(true)
             if indicatorTable["num"] then
                 if not indicatorTable["found"][unit] then
@@ -282,7 +297,8 @@ function I.UpdateCustomIndicators(unitButton, auraInfo)
     end
 
     for indicatorName, indicatorTable in pairs(customIndicators[auraType]) do
-        if indicatorName and enabledIndicators[indicatorName] and unitButton.indicators[indicatorName] then
+        if indicatorName and enabledIndicators[indicatorName] and unitButton.indicators[indicatorName]
+            and not unitButton.indicators[indicatorName].isContainer then
             local spell  --* trackByName
             if indicatorTable["trackByName"] then
                 spell = auraInfo.name
@@ -323,7 +339,7 @@ function I.ShowCustomIndicators(unitButton, auraType)
     local unit = unitButton.states.displayedUnit
     for indicatorName, indicatorTable in pairs(customIndicators[auraType]) do
         local indicator = unitButton.indicators[indicatorName]
-        if indicator and enabledIndicators[indicatorName] then
+        if indicator and enabledIndicators[indicatorName] and not indicator.isContainer then
             if indicatorTable["num"] then
                 local t = indicatorTable["found"][unit]
                 if t[1] then

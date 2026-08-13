@@ -2826,6 +2826,10 @@ local function UnitButton_UpdateVehicleStatus(self)
         self.states.displayedUnit = self.states.unit
         self.indicators.nameText.vehicle:SetText("")
     end
+
+    -- container-backed indicators render whichever unit they were given, so they follow
+    -- displayedUnit into and out of a vehicle the same way the rest of the button does
+    I.UpdateContainerIndicatorsUnit(self)
 end
 
 UnitButton_UpdateStatusText = function(self)
@@ -3334,6 +3338,7 @@ local function UnitButton_OnAttributeChanged(self, name, value)
         if type(value) == "string" then
             self.states.unit = value
             self.states.displayedUnit = value
+            I.UpdateContainerIndicatorsUnit(self)
             if string.find(value, "^raid%d+$") then Cell.unitButtons.raid.units[value] = self end
 
             -- range

@@ -24,6 +24,13 @@ Defaults\LoadDefaults.xml
 
 HideBlizzard.lua
 
+Indicators\Containers\Compat.lua
+Indicators\Containers\TextStyle.lua
+Indicators\Containers\Pandemic.lua
+Indicators\Containers\Border.lua
+Indicators\Containers\AuraContainer.lua
+Indicators\Containers\CellAdapter.lua
+
 Indicators\Base.lua
 Indicators\Built-in.lua
 Indicators\StatusIcon.lua
