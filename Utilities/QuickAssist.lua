@@ -170,8 +170,15 @@ local function ForEachAuraHelper(button, func, continuationToken, ...)
     end
 end
 
-local function ForEachAura(button, filter, func)
+-- 12.1.0 made GetAuraSlots throw outright, rather than return secret values, when Cell is
+-- tainted and the unit's auras are secret. QuickAssist keeps no aura cache, so a blocked scan
+-- simply yields no auras this pass instead of erroring on every update.
+local function ScanAuras(button, filter, func)
     ForEachAuraHelper(button, func, GetAuraSlots(button.unit, filter))
+end
+
+local function ForEachAura(button, filter, func)
+    return (pcall(ScanAuras, button, filter, func))
 end
 
 -- ----------------------------------------------------------------------- --

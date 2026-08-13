@@ -1086,8 +1086,24 @@ local function ForEachAuraHelper(button, func, continuationToken, ...)
     end
 end
 
-local function ForEachAura(button, filter, func)
-    ForEachAuraHelper(button, func, GetAuraSlots(button.states.displayedUnit, filter))
+-- 12.1.0 made GetAuraSlots throw outright, rather than return secret values, when Cell is
+-- tainted and the unit's auras are secret. The scan runs inside a pcall and clears the cache
+-- only after GetAuraSlots has returned, so a blocked rescan leaves the previously known auras
+-- in place instead of blanking the frame.
+-- ForEachAura returns true if the unit was actually rescanned, false if the scan was blocked.
+local function ApplyAuraSlots(button, func, cache, ...)
+    -- reached only once GetAuraSlots has returned, so a successful rescan is authoritative
+    -- and stale entries can be dropped
+    wipe(cache)
+    ForEachAuraHelper(button, func, ...)
+end
+
+local function ScanAuras(button, filter, func, cache)
+    ApplyAuraSlots(button, func, cache, GetAuraSlots(button.states.displayedUnit, filter))
+end
+
+local function ForEachAura(button, filter, func, cache)
+    return (pcall(ScanAuras, button, filter, func, cache))
 end
 
 -------------------------------------------------
@@ -1293,8 +1309,10 @@ local function UnitButton_UpdateDebuffs(self, isFullUpdate)
     I.ResetCustomIndicators(self, "debuff")
 
     if isFullUpdate then
-        wipe(self._debuffs_cache)
-        ForEachAura(self, "HARMFUL", HandleDebuff)
+        if not ForEachAura(self, "HARMFUL", HandleDebuff, self._debuffs_cache) then
+            -- rescan blocked by aura secrecy, so show what the incremental cache still knows
+            ForEachAuraCache(self, "HARMFUL", HandleDebuff)
+        end
     else
         ForEachAuraCache(self, "HARMFUL", HandleDebuff)
     end
@@ -1573,8 +1591,10 @@ local function UnitButton_UpdateBuffs(self, isFullUpdate)
     I.ResetCustomIndicators(self, "buff")
 
     if isFullUpdate then
-        wipe(self._buffs_cache)
-        ForEachAura(self, "HELPFUL", HandleBuff)
+        if not ForEachAura(self, "HELPFUL", HandleBuff, self._buffs_cache) then
+            -- rescan blocked by aura secrecy, so show what the incremental cache still knows
+            ForEachAuraCache(self, "HELPFUL", HandleBuff)
+        end
     else
         ForEachAuraCache(self, "HELPFUL", HandleBuff)
     end
